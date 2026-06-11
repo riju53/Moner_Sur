@@ -4,5 +4,5 @@ soundfile==0.13.1
 sentencepiece==0.2.1
 streamlit==1.58.0
 numpy==2.0.2
-torch @ https://download.pytorch.org/whl/cpu/torch-2.11.0%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl
+torch==2.3.1
 transformers==5.10.1
