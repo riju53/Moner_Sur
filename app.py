@@ -4,7 +4,7 @@ import tempfile
 
 st.title("🎵 Moner Sur AI Music Generator")
 
-HF_TOKEN = st.secrets["HUGGINGFACE_API_KEY "]
+HF_TOKEN = st.secrets["HUGGINGFACE_API_KEY"]
 
 API_URL = (
     "https://api-inference.huggingface.co/models/"
