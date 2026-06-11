@@ -1,41 +1,66 @@
 import streamlit as st
-import torch
-import soundfile as sf
-from transformers import AutoProcessor, MusicgenForConditionalGeneration
+import requests
+import tempfile
 
-st.title("🎵 MusicGen Stereo Large - AI Music Generator")
+st.title("🎵 Moner Sur AI Music Generator")
 
-@st.cache_resource
-def load_model():
-    processor = AutoProcessor.from_pretrained("facebook/musicgen-small")
-    model = MusicgenForConditionalGeneration.from_pretrained(
-        "facebook/musicgen-stereo-large"
-    )
-    return processor, model
+HF_TOKEN = st.secrets["HF_TOKEN"]
 
-processor, model = load_model()
+API_URL = (
+    "https://api-inference.huggingface.co/models/"
+    "facebook/musicgen-stereo-large"
+)
 
-prompt = st.text_input("Enter music prompt", "cinematic orchestral music with drums")
+headers = {
+    "Authorization": f"Bearer {HF_TOKEN}"
+}
 
-duration = st.slider("Generation length (tokens)", 128, 1024, 256)
+prompt = st.text_area(
+    "Enter music prompt",
+    "romantic piano melody with soft strings"
+)
 
 if st.button("Generate Music 🎶"):
-    with st.spinner("Generating music... please wait"):
-        inputs = processor(text=[prompt], return_tensors="pt")
 
-        with torch.no_grad():
-            audio_values = model.generate(**inputs, max_new_tokens=duration)
+    with st.spinner("Generating music..."):
 
-        audio = audio_values[0].cpu().numpy()
+        payload = {
+            "inputs": prompt
+        }
 
-        # Save file
-        sf.write("musicgen_output.wav", audio, 32000)
+        response = requests.post(
+            API_URL,
+            headers=headers,
+            json=payload,
+            timeout=600
+        )
 
-    st.success("Done!")
+        if response.status_code == 200:
 
-    st.audio("musicgen_output.wav")
-    st.download_button(
-        "Download WAV",
-        data=open("musicgen_output.wav", "rb"),
-        file_name="musicgen.wav"
-    )
+            audio_bytes = response.content
+
+            tmp_file = tempfile.NamedTemporaryFile(
+                delete=False,
+                suffix=".wav"
+            )
+
+            tmp_file.write(audio_bytes)
+            tmp_file.close()
+
+            st.success("Music Generated!")
+
+            st.audio(tmp_file.name)
+
+            with open(tmp_file.name, "rb") as f:
+                st.download_button(
+                    "Download WAV",
+                    f,
+                    file_name="music.wav",
+                    mime="audio/wav"
+                )
+
+        else:
+            st.error(
+                f"API Error: {response.status_code}"
+            )
+            st.write(response.text)
