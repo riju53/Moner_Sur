@@ -1,98 +1,41 @@
 import streamlit as st
-import requests
-import tempfile
+import torch
+import soundfile as sf
+from transformers import AutoProcessor, MusicgenForConditionalGeneration
 
-st.set_page_config(
-    page_title="🎵 Moner Sur AI Music Generator",
-    page_icon="🎵"
-)
+st.title("🎵 MusicGen Stereo Large - AI Music Generator")
 
-st.title("🎵 Moner Sur AI Music Generator")
+@st.cache_resource
+def load_model():
+    processor = AutoProcessor.from_pretrained("facebook/musicgen-stereo-large")
+    model = MusicgenForConditionalGeneration.from_pretrained(
+        "facebook/musicgen-stereo-large"
+    )
+    return processor, model
 
-st.markdown("Generate music using Hugging Face MusicGen API")
+processor, model = load_model()
 
-# User enters API key
-hf_token = st.text_input(
-    "Enter Hugging Face API Token",
-    type="password",
-    placeholder="hf_xxxxxxxxxxxxxxxxxxxxx"
-)
+prompt = st.text_input("Enter music prompt", "cinematic orchestral music with drums")
 
-# Music prompt
-prompt = st.text_area(
-    "Music Prompt",
-    value="romantic piano melody with soft strings and emotional atmosphere",
-    height=120
-)
+duration = st.slider("Generation length (tokens)", 128, 1024, 256)
 
-# Model selection
-model_name = st.selectbox(
-    "Select Model",
-    [
-        "facebook/musicgen-small",
-        "facebook/musicgen-medium"
-    ]
-)
+if st.button("Generate Music 🎶"):
+    with st.spinner("Generating music... please wait"):
+        inputs = processor(text=[prompt], return_tensors="pt")
 
-if st.button("🎶 Generate Music"):
+        with torch.no_grad():
+            audio_values = model.generate(**inputs, max_new_tokens=duration)
 
-    if not hf_token:
-        st.error("Please enter your Hugging Face API token.")
-        st.stop()
+        audio = audio_values[0].cpu().numpy()
 
-    if not prompt.strip():
-        st.error("Please enter a music prompt.")
-        st.stop()
+        # Save file
+        sf.write("musicgen_output.wav", audio, 32000)
 
-    API_URL = f"https://api-inference.huggingface.co/models/{model_name}"
+    st.success("Done!")
 
-    headers = {
-        "Authorization": f"Bearer {hf_token}"
-    }
-
-    with st.spinner("Generating music... This may take a few minutes."):
-
-        try:
-            response = requests.post(
-                API_URL,
-                headers=headers,
-                json={"inputs": prompt},
-                timeout=300
-            )
-
-            if response.status_code == 200:
-
-                audio_bytes = response.content
-
-                temp_audio = tempfile.NamedTemporaryFile(
-                    delete=False,
-                    suffix=".wav"
-                )
-
-                temp_audio.write(audio_bytes)
-                temp_audio.close()
-
-                st.success("✅ Music generated successfully!")
-
-                st.audio(temp_audio.name)
-
-                with open(temp_audio.name, "rb") as f:
-                    st.download_button(
-                        "⬇️ Download Music",
-                        data=f,
-                        file_name="moner_sur_music.wav",
-                        mime="audio/wav"
-                    )
-
-            else:
-                st.error(f"API Error: {response.status_code}")
-                st.code(response.text)
-
-        except requests.exceptions.Timeout:
-            st.error("Request timed out. Try again.")
-
-        except requests.exceptions.ConnectionError:
-            st.error("Could not connect to Hugging Face API.")
-
-        except Exception as e:
-            st.error(f"Unexpected Error: {str(e)}")
+    st.audio("musicgen_output.wav")
+    st.download_button(
+        "Download WAV",
+        data=open("musicgen_output.wav", "rb"),
+        file_name="musicgen.wav"
+    )
