@@ -7,7 +7,7 @@ st.title("🎵 MusicGen Stereo Large - AI Music Generator")
 
 @st.cache_resource
 def load_model():
-    processor = AutoProcessor.from_pretrained("facebook/musicgen-stereo-large")
+    processor = AutoProcessor.from_pretrained("facebook/musicgen-small")
     model = MusicgenForConditionalGeneration.from_pretrained(
         "facebook/musicgen-stereo-large"
     )
